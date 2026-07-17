@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>日本旅行購物清單 (即時共享版)</title>
+    <title>日本旅行購物清單 (極速共享版)</title>
     
     <!-- 引入極度穩定的 Firebase 即時網頁同步引擎 -->
     <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -21,7 +21,7 @@
 
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft JhengHei", sans-serif; 
-            padding: 15px 15px 40px 15px; /* 底部增加留白，避免被手機鍵盤遮擋 */
+            padding: 15px 15px 40px 15px; 
             max-width: 800px; margin: auto; background-color: var(--bg-color); color: var(--text-color);
             -webkit-tap-highlight-color: transparent;
         }
@@ -62,7 +62,7 @@
         
         .no-data { text-align: center; padding: 40px 20px; background: white; border-radius: 12px; color: #909399; font-size: 15px; }
 
-        /* 輸入區域 (搬移到最下方，並加上引人注目的框線設計) */
+        /* 輸入區域 (最下方) */
         .input-card { 
             background: white; 
             padding: 16px; 
@@ -110,9 +110,9 @@
             <button onclick="switchRoom()" class="btn-sync">切換房間</button>
         </div>
     </div>
-    <div class="sync-status" id="status">🔵 雲端連線中...</div>
+    <div class="sync-status" id="status">🔄 正在載入本地歷史紀錄...</div>
     
-    <!-- 2. 中間：清單內容區域 (讓大家進來最先看到完整的歷史清單) -->
+    <!-- 2. 中間：清單內容區域 -->
     <!-- 電腦版 Table -->
     <div class="table-container">
         <table id="shopping-table">
@@ -131,7 +131,7 @@
     <!-- 手機版 Card 流 -->
     <div class="mobile-list" id="list-body-mobile"></div>
 
-    <!-- 3. 最下方：輸入區塊 (功能包含：新增、修改、儲存) -->
+    <!-- 3. 最下方：輸入區塊 (新增, 修改, 儲存功能) -->
     <div class="input-card" id="editor-section">
         <div class="input-card-title" id="editor-title">➕ 新增物品到清單</div>
         <div class="input-group">
@@ -160,17 +160,27 @@
         let dbRef = null;
         let items = [];
 
-        // 初始化連線
+        // 初始化：第一步「絕對優先」讀取手機內部的本地快取，保證網頁一開、按鈕一按，畫面0.01秒立刻回應！
         function initConnection() {
             const savedRoom = localStorage.getItem('japan_shared_room_name') || "我們的日本團2026";
             document.getElementById('room-name-input').value = savedRoom;
             currentRoomName = savedRoom;
+
+            // 優先讀取手機本地備份，不讓畫面空白
+            const cachedData = localStorage.getItem('cache_' + currentRoomName);
+            if (cachedData) {
+                items = JSON.parse(cachedData);
+                renderList();
+            } else {
+                renderList();
+            }
+
             connectToRoom(savedRoom);
         }
 
-        // 綁定雲端房間（即時監聽變動）
+        // 綁定雲端房間（在背景執行，不影響目前畫面的操作）
         function connectToRoom(roomName) {
-            document.getElementById('status').innerText = "🔄 正在讀取雲端歷史清單...";
+            document.getElementById('status').innerText = "🔄 正在背景與雲端同步...";
             document.getElementById('status').style.color = "#e6a23c";
             
             const safeRoomKey = btoa(encodeURIComponent(roomName)).replace(/=/g, "");
@@ -181,26 +191,50 @@
 
             dbRef = database.ref('japan_trips/' + safeRoomKey);
 
-            // 當雲端有任何變動，0秒即時重新渲染，保留所有人之前新增的內容
+            // 監聽雲端最新資料
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val();
-                items = [];
+                let cloudItems = [];
                 
                 if (data) {
                     Object.keys(data).forEach(key => {
-                        items.push({
+                        cloudItems.push({
                             fbKey: key,
                             ...data[key]
                         });
                     });
+                    
+                    // 將雲端拿到的資料覆蓋至本地，並更新快取
+                    items = cloudItems;
+                    localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
+                    renderList();
+                } else {
+                    // 如果雲端為空，而本地本來有資料，就以本地資料上傳至雲端同步
+                    if (items.length > 0) {
+                        uploadAllToCloud();
+                    }
                 }
                 
-                document.getElementById('status').innerText = `🟢 已即時同步房間：【${roomName}】`;
+                document.getElementById('status').innerText = `🟢 已與雲端連線：【${roomName}】`;
                 document.getElementById('status').style.color = "#67c23a";
-                renderList();
             }, (error) => {
-                document.getElementById('status').innerText = "🔴 網路連線異常";
-                document.getElementById('status').style.color = "#f56c6c";
+                // 如果連線失敗（比如沒網、被牆、伺服器當機），介面依然可用
+                document.getElementById('status').innerText = "🟡 正在離線使用（內容已儲存在手機中）";
+                document.getElementById('status').style.color = "#e6a23c";
+            });
+        }
+
+        // 當雲端為空時，將本地資料全部補傳上雲端
+        function uploadAllToCloud() {
+            if (!dbRef) return;
+            items.forEach(item => {
+                const itemData = {
+                    name: item.name,
+                    qty: item.qty,
+                    note: item.note || '',
+                    timestamp: item.timestamp || Date.now()
+                };
+                dbRef.push(itemData);
             });
         }
 
@@ -211,10 +245,16 @@
             currentRoomName = newRoom;
             localStorage.setItem('japan_shared_room_name', newRoom);
             clearInputs();
+
+            // 切換時，一樣優先撈該房間的手機本地備份
+            const cachedData = localStorage.getItem('cache_' + currentRoomName);
+            items = cachedData ? JSON.parse(cachedData) : [];
+            renderList();
+
             connectToRoom(newRoom);
         }
 
-        // 渲染清單到畫面上 (保留修改、刪除操作)
+        // 渲染清單到畫面上 (手機卡片 & 電腦表格)
         function renderList() {
             const desktopTbody = document.getElementById('list-body-desktop');
             const mobileList = document.getElementById('list-body-mobile');
@@ -230,20 +270,20 @@
             }
 
             items.forEach(item => {
-                // 電腦版 Table (上方顯示)
+                // 電腦版 Table
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td><strong>${item.name}</strong></td>
                     <td>${item.qty}</td>
                     <td>${item.note || '-'}</td>
                     <td>
-                        <button class="btn-table-edit" onclick="editItem('${item.fbKey}')">修改</button>
-                        <button class="btn-table-delete" onclick="deleteItem('${item.fbKey}')">刪除</button>
+                        <button class="btn-table-edit" onclick="editItem('${item.fbKey || item.localId}')">修改</button>
+                        <button class="btn-table-delete" onclick="deleteItem('${item.fbKey || item.localId}')">刪除</button>
                     </td>
                 `;
                 desktopTbody.appendChild(tr);
 
-                // 手機版 Card (上方顯示)
+                // 手機版 Card
                 const card = document.createElement('div');
                 card.className = 'mobile-card';
                 card.innerHTML = `
@@ -253,17 +293,17 @@
                     </div>
                     ${item.note ? `<div class="card-note">${item.note}</div>` : ''}
                     <div class="card-actions">
-                        <button class="btn-mob-edit" onclick="editItem('${item.fbKey}')">✏️ 修改</button>
-                        <button class="btn-mob-delete" onclick="deleteItem('${item.fbKey}')">🗑️ 刪除</button>
+                        <button class="btn-mob-edit" onclick="editItem('${item.fbKey || item.localId}')">✏️ 修改</button>
+                        <button class="btn-mob-delete" onclick="deleteItem('${item.fbKey || item.localId}')">🗑️ 刪除</button>
                     </div>
                 `;
                 mobileList.appendChild(card);
             });
         }
 
-        // 新增或儲存修改 (下方表單提交)
+        // 新增或儲存修改 (核心：本地瞬間回應，背景靜默同步)
         function saveItem() {
-            const fbKey = document.getElementById('item-firebase-key').value;
+            const keyInput = document.getElementById('item-firebase-key').value;
             const name = document.getElementById('item-name').value.trim();
             const qty = document.getElementById('item-qty').value;
             const note = document.getElementById('item-note').value.trim();
@@ -273,31 +313,57 @@
                 return;
             }
 
-            const itemData = {
+            const timestamp = Date.now();
+            const tempLocalId = 'local_' + timestamp;
+
+            const localItemData = {
                 name: name,
                 qty: Number(qty) || 1,
                 note: note,
-                timestamp: Date.now()
+                timestamp: timestamp
             };
 
-            if (fbKey) {
-                // 【修改儲存】：精準更新對應節點
-                dbRef.child(fbKey).update(itemData).then(() => { 
-                    clearInputs(); 
-                });
+            // 🚀 【第一步：本地瞬間反應，不用等網路】
+            if (keyInput) {
+                // 修改
+                const index = items.findIndex(i => (i.fbKey === keyInput || i.localId === keyInput));
+                if (index > -1) {
+                    items[index] = { ...items[index], ...localItemData };
+                }
             } else {
-                // 【新增】：往雲端排隊追加，保留全部歷史清單
-                dbRef.push(itemData).then(() => { 
-                    clearInputs(); 
-                });
+                // 新增
+                items.push({ localId: tempLocalId, ...localItemData });
+            }
+
+            // 立刻儲存本地備份並更新畫面（保證畫面0.01秒內出現最新物品！）
+            localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
+            renderList();
+            clearInputs();
+
+            // 🚀 【第二步：在背景悄悄更新雲端】
+            if (dbRef) {
+                const cloudPayload = {
+                    name: localItemData.name,
+                    qty: localItemData.qty,
+                    note: localItemData.note,
+                    timestamp: localItemData.timestamp
+                };
+
+                if (keyInput && !keyInput.startsWith('local_')) {
+                    // 如果原本就有雲端金鑰，直接更新雲端該節點
+                    dbRef.child(keyInput).update(cloudPayload).catch(err => console.log('背景同步延遲，已留存於本地'));
+                } else {
+                    // 如果是全新新增，推送到雲端
+                    dbRef.push(cloudPayload).catch(err => console.log('背景上傳延遲，已留存於本地'));
+                }
             }
         }
 
-        // 觸發修改模式 (點擊上方修改按鈕，自動帶入下方輸入框，並流暢滾動到底部)
+        // 點選修改（瞬間捲動到下方表單填好內容）
         function editItem(key) {
-            const item = items.find(i => i.fbKey === key);
+            const item = items.find(i => (i.fbKey === key || i.localId === key));
             if (item) {
-                document.getElementById('item-firebase-key').value = item.fbKey;
+                document.getElementById('item-firebase-key').value = key;
                 document.getElementById('item-name').value = item.name;
                 document.getElementById('item-qty').value = item.qty;
                 document.getElementById('item-note').value = item.note || '';
@@ -306,15 +372,23 @@
                 document.getElementById('save-btn').innerText = '儲存修改';
                 document.getElementById('cancel-btn').style.display = 'inline-block';
                 
-                // 🚀 精華優化：將手機/電腦畫面平滑滾動到最下方的「輸入編輯區」
+                // 平滑滾動到最下方的輸入編輯區
                 document.getElementById('editor-section').scrollIntoView({ behavior: 'smooth', block: 'end' });
             }
         }
 
-        // 刪除特定物品
+        // 刪除物品
         function deleteItem(key) {
             if (confirm('確定要刪除這個物品嗎？群組中其他人的手機也會同步消失喔！')) {
-                dbRef.child(key).remove();
+                // 1. 本地瞬間刪除
+                items = items.filter(i => (i.fbKey !== key && i.localId !== key));
+                localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
+                renderList();
+
+                // 2. 背景默默移去雲端節點
+                if (dbRef && !key.startsWith('local_')) {
+                    dbRef.child(key).remove().catch(err => console.log('背景同步延遲，本地已先刪除'));
+                }
             }
         }
 
