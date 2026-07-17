@@ -15,6 +15,7 @@
             --hover-color: #b0151b;
             --bg-color: #f4f6f9;
             --text-color: #2c3e50;
+            --success-color: #27ae60;
         }
         
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -28,7 +29,7 @@
 
         h1 { color: var(--primary-color); text-align: center; font-size: 24px; padding: 10px 0; }
         
-        /* 雲端房間設定區塊 */
+        /* 雲端房間設定 */
         .room-card {
             background: #fff3f3; border: 1px solid #ffcccc; padding: 12px; border-radius: 12px; margin-bottom: 15px;
             display: flex; flex-direction: column; gap: 8px; align-items: center; box-shadow: 0 2px 6px rgba(0,0,0,0.02);
@@ -39,9 +40,24 @@
         .room-input:focus { border-color: var(--primary-color); }
         .btn-sync { background-color: #e6a23c; color: white; padding: 8px 16px; font-size: 14px; border-radius: 8px; font-weight: bold; }
 
-        .sync-status { text-align: center; color: #67c23a; font-size: 13px; margin-bottom: 20px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        /* 頂部同步與自動儲存狀態 */
+        .sync-status { text-align: center; color: #67c23a; font-size: 13px; margin-bottom: 15px; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 5px; }
 
-        /* 表格樣式 (電腦版在上方) */
+        /* 篩選與工具按鈕列 */
+        .filter-bar {
+            display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; justify-content: center;
+        }
+        .btn-filter {
+            background-color: white; border: 1px solid #dcdfe6; color: #606266; padding: 8px 14px; font-size: 13px; border-radius: 20px; font-weight: bold; transition: 0.2s;
+        }
+        .btn-filter.active {
+            background-color: var(--primary-color); color: white; border-color: var(--primary-color);
+        }
+        .btn-copy-list {
+            background-color: #27ae60; color: white; padding: 8px 14px; font-size: 13px; border-radius: 20px; font-weight: bold; margin-left: auto;
+        }
+
+        /* 表格樣式 (電腦版) */
         .table-container { display: none; background: white; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); overflow: hidden; margin-bottom: 25px; }
         table { width: 100%; border-collapse: collapse; }
         th, td { padding: 16px; text-align: left; border-bottom: 1px solid #f0f2f5; }
@@ -49,12 +65,36 @@
         .btn-table-edit { background-color: #e6a23c; color: white; padding: 6px 12px; font-size: 13px; margin-right: 5px; border-radius: 4px; }
         .btn-table-delete { background-color: #f56c6c; color: white; padding: 6px 12px; font-size: 13px; border-radius: 4px; }
 
-        /* 卡片流樣式 (手機版在上方) */
+        /* 已購買的樣式 (灰色、劃掉) */
+        .purchased {
+            text-decoration: line-through;
+            color: #909399 !important;
+            opacity: 0.6;
+        }
+        .checkbox-container {
+            display: inline-flex;
+            align-items: center;
+            cursor: pointer;
+        }
+        .chk-box {
+            width: 20px; height: 20px; border-radius: 4px; border: 2px solid #dcdfe6; display: inline-block; margin-right: 8px; transition: 0.1s; position: relative;
+        }
+        .chk-box.checked {
+            background-color: var(--success-color); border-color: var(--success-color);
+        }
+        .chk-box.checked::after {
+            content: "✓"; color: white; font-size: 14px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -55%);
+        }
+
+        /* 卡片流樣式 (手機版) */
         .mobile-list { display: flex; flex-direction: column; gap: 12px; margin-bottom: 25px; }
         .mobile-card { background: white; border-radius: 12px; padding: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.04); border-left: 5px solid var(--primary-color); animation: fadeIn 0.3s ease; }
+        .mobile-card.is-bought { border-left-color: #c0c4cc; }
         .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+        .card-title-group { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
         .card-title { font-size: 18px; font-weight: bold; color: #303133; word-break: break-all; }
-        .card-qty { background-color: #fef0f0; color: var(--primary-color); padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: bold; }
+        .card-qty { background-color: #fef0f0; color: var(--primary-color); padding: 4px 10px; border-radius: 20px; font-size: 13px; font-weight: bold; white-space: nowrap; }
+        .card-qty.is-bought { background-color: #f4f4f5; color: #909399; }
         .card-note { font-size: 14px; color: #606266; background: #f8f9fa; padding: 8px 12px; border-radius: 6px; margin-bottom: 12px; word-break: break-all; }
         .card-actions { display: flex; gap: 10px; justify-content: flex-end; }
         .btn-mob-edit { background-color: #e6a23c; color: white; padding: 10px 18px; font-size: 14px; flex: 1; text-align: center; border-radius: 6px; }
@@ -64,12 +104,9 @@
 
         /* 輸入區域 (最下方) */
         .input-card { 
-            background: white; 
-            padding: 16px; 
-            border-radius: 12px; 
+            background: white; padding: 16px; border-radius: 12px; 
             box-shadow: 0 -4px 15px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05); 
-            border-top: 3px solid var(--primary-color);
-            margin-top: 15px; 
+            border-top: 3px solid var(--primary-color); margin-top: 15px; 
         }
         .input-card-title { font-size: 16px; font-weight: bold; color: var(--primary-color); margin-bottom: 12px; text-align: center; }
         .input-group { display: flex; flex-direction: column; gap: 12px; margin-bottom: 15px; }
@@ -102,7 +139,7 @@
 <body>
     <h1>🇯🇵 日本旅行購物清單</h1>
     
-    <!-- 1. 雲端房間設定 (置頂) -->
+    <!-- 1. 雲端房間設定 -->
     <div class="room-card">
         <label>🔑 LINE 群組共用房間名稱：</label>
         <div class="room-input-group">
@@ -112,12 +149,21 @@
     </div>
     <div class="sync-status" id="status">🔄 正在載入本地歷史紀錄...</div>
     
-    <!-- 2. 中間：清單內容區域 -->
+    <!-- 篩選器與工具按鈕 -->
+    <div class="filter-bar">
+        <button class="btn-filter active" id="btn-filter-all" onclick="setFilter('all')">顯示所有物品</button>
+        <button class="btn-filter" id="btn-filter-active" onclick="setFilter('active')">📝 只看未購買</button>
+        <button class="btn-filter" id="btn-filter-completed" onclick="setFilter('completed')">🟢 只看已購買</button>
+        <button class="btn-copy-list" onclick="copyToClipboard()">📋 複製文字清單</button>
+    </div>
+
+    <!-- 2. 中間：清單內容區域 (上方呈現) -->
     <!-- 電腦版 Table -->
     <div class="table-container">
         <table id="shopping-table">
             <thead>
                 <tr>
+                    <th style="width: 50px;">狀態</th>
                     <th>物品名稱</th>
                     <th style="width: 80px;">數量</th>
                     <th>備註/購買人</th>
@@ -131,7 +177,7 @@
     <!-- 手機版 Card 流 -->
     <div class="mobile-list" id="list-body-mobile"></div>
 
-    <!-- 3. 最下方：輸入區塊 (新增, 修改, 儲存功能) -->
+    <!-- 3. 最下方：輸入區塊 (功能包含：新增、修改、自動儲存) -->
     <div class="input-card" id="editor-section">
         <div class="input-card-title" id="editor-title">➕ 新增物品到清單</div>
         <div class="input-group">
@@ -147,26 +193,24 @@
     </div>
 
     <script>
-        // 配置免註冊全球同步沙盒通道
         const firebaseConfig = {
             databaseURL: "https://html-shopping-list-default-rtdb.firebaseio.com/"
         };
 
-        // 初始化 Firebase
         firebase.initializeApp(firebaseConfig);
         const database = firebase.database();
         
         let currentRoomName = "";
         let dbRef = null;
         let items = [];
+        let currentFilter = 'all'; 
 
-        // 初始化：第一步「絕對優先」讀取手機內部的本地快取，保證網頁一開、按鈕一按，畫面0.01秒立刻回應！
+        // 初始化
         function initConnection() {
             const savedRoom = localStorage.getItem('japan_shared_room_name') || "我們的日本團2026";
             document.getElementById('room-name-input').value = savedRoom;
             currentRoomName = savedRoom;
 
-            // 優先讀取手機本地備份，不讓畫面空白
             const cachedData = localStorage.getItem('cache_' + currentRoomName);
             if (cachedData) {
                 items = JSON.parse(cachedData);
@@ -178,10 +222,9 @@
             connectToRoom(savedRoom);
         }
 
-        // 綁定雲端房間（在背景執行，不影響目前畫面的操作）
+        // 綁定雲端房間
         function connectToRoom(roomName) {
-            document.getElementById('status').innerText = "🔄 正在背景與雲端同步...";
-            document.getElementById('status').style.color = "#e6a23c";
+            showStatus("🔄 正在背景與雲端同步...", "#e6a23c");
             
             const safeRoomKey = btoa(encodeURIComponent(roomName)).replace(/=/g, "");
             
@@ -191,7 +234,6 @@
 
             dbRef = database.ref('japan_trips/' + safeRoomKey);
 
-            // 監聽雲端最新資料
             dbRef.on('value', (snapshot) => {
                 const data = snapshot.val();
                 let cloudItems = [];
@@ -204,23 +246,18 @@
                         });
                     });
                     
-                    // 將雲端拿到的資料覆蓋至本地，並更新快取
                     items = cloudItems;
                     localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
                     renderList();
                 } else {
-                    // 如果雲端為空，而本地本來有資料，就以本地資料上傳至雲端同步
                     if (items.length > 0) {
                         uploadAllToCloud();
                     }
                 }
                 
-                document.getElementById('status').innerText = `🟢 已與雲端連線：【${roomName}】`;
-                document.getElementById('status').style.color = "#67c23a";
+                showStatus(`🟢 已與雲端連線：【${roomName}】 (自動儲存中)`, "#67c23a");
             }, (error) => {
-                // 如果連線失敗（比如沒網、被牆、伺服器當機），介面依然可用
-                document.getElementById('status').innerText = "🟡 正在離線使用（內容已儲存在手機中）";
-                document.getElementById('status').style.color = "#e6a23c";
+                showStatus("🟡 正在離線使用（內容已儲存在手機中）", "#e6a23c");
             });
         }
 
@@ -232,10 +269,30 @@
                     name: item.name,
                     qty: item.qty,
                     note: item.note || '',
+                    bought: item.bought || false,
                     timestamp: item.timestamp || Date.now()
                 };
                 dbRef.push(itemData);
             });
+        }
+
+        // 修改與顯示狀態列文字
+        function showStatus(text, color) {
+            const statusEl = document.getElementById('status');
+            statusEl.innerText = text;
+            statusEl.style.color = color;
+        }
+
+        // 切換篩選狀態 (顯示所有、未購買、已購買)
+        function setFilter(filterType) {
+            currentFilter = filterType;
+            
+            document.querySelectorAll('.btn-filter').forEach(btn => btn.classList.remove('active'));
+            if (filterType === 'all') document.getElementById('btn-filter-all').classList.add('active');
+            if (filterType === 'active') document.getElementById('btn-filter-active').classList.add('active');
+            if (filterType === 'completed') document.getElementById('btn-filter-completed').classList.add('active');
+            
+            renderList();
         }
 
         // 切換房間
@@ -246,7 +303,6 @@
             localStorage.setItem('japan_shared_room_name', newRoom);
             clearInputs();
 
-            // 切換時，一樣優先撈該房間的手機本地備份
             const cachedData = localStorage.getItem('cache_' + currentRoomName);
             items = cachedData ? JSON.parse(cachedData) : [];
             renderList();
@@ -254,7 +310,7 @@
             connectToRoom(newRoom);
         }
 
-        // 渲染清單到畫面上 (手機卡片 & 電腦表格)
+        // 渲染清單到畫面上 (手機卡片與電腦表格都完美支援修改和刪除)
         function renderList() {
             const desktopTbody = document.getElementById('list-body-desktop');
             const mobileList = document.getElementById('list-body-mobile');
@@ -262,46 +318,94 @@
             desktopTbody.innerHTML = '';
             mobileList.innerHTML = '';
             
-            if (items.length === 0) {
-                const emptyHtml = "目前清單沒有東西，快在下方輸入新增第一筆吧！";
-                desktopTbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #999; padding: 40px 10px;">${emptyHtml}</td></tr>`;
+            // 進行篩選過濾
+            const filteredItems = items.filter(item => {
+                if (currentFilter === 'active') return !item.bought;
+                if (currentFilter === 'completed') return item.bought;
+                return true; // 'all'
+            });
+
+            if (filteredItems.length === 0) {
+                let emptyHtml = "目前清單沒有東西，快在下方輸入新增第一筆吧！";
+                if (currentFilter === 'active') emptyHtml = "目前沒有未購買的物品囉！👍";
+                if (currentFilter === 'completed') emptyHtml = "目前還沒有打勾已購買的物品。";
+                
+                desktopTbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #999; padding: 40px 10px;">${emptyHtml}</td></tr>`;
                 mobileList.innerHTML = `<div class="no-data">${emptyHtml}</div>`;
                 return;
             }
 
-            items.forEach(item => {
-                // 電腦版 Table
+            filteredItems.forEach(item => {
+                const isBoughtClass = item.bought ? 'purchased' : '';
+                const isCheckedClass = item.bought ? 'checked' : '';
+                const uniqueKey = item.fbKey || item.localId;
+
+                // 電腦版 Table (渲染修改、刪除按鈕)
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><strong>${item.name}</strong></td>
-                    <td>${item.qty}</td>
-                    <td>${item.note || '-'}</td>
                     <td>
-                        <button class="btn-table-edit" onclick="editItem('${item.fbKey || item.localId}')">修改</button>
-                        <button class="btn-table-delete" onclick="deleteItem('${item.fbKey || item.localId}')">刪除</button>
+                        <div class="checkbox-container" onclick="toggleBought('${uniqueKey}')">
+                            <span class="chk-box ${isCheckedClass}"></span>
+                        </div>
+                    </td>
+                    <td class="${isBoughtClass}"><strong>${item.name}</strong></td>
+                    <td class="${isBoughtClass}">${item.qty}</td>
+                    <td class="${isBoughtClass}">${item.note || '-'}</td>
+                    <td>
+                        <button class="btn-table-edit" onclick="editItem('${uniqueKey}')">修改</button>
+                        <button class="btn-table-delete" onclick="deleteItem('${uniqueKey}')">刪除</button>
                     </td>
                 `;
                 desktopTbody.appendChild(tr);
 
-                // 手機版 Card
+                // 手機版 Card (渲染修改、刪除按鈕)
                 const card = document.createElement('div');
-                card.className = 'mobile-card';
+                card.className = `mobile-card ${item.bought ? 'is-bought' : ''}`;
                 card.innerHTML = `
                     <div class="card-header">
-                        <div class="card-title">${item.name}</div>
-                        <div class="card-qty">數量: ${item.qty}</div>
+                        <div class="card-title-group" onclick="toggleBought('${uniqueKey}')">
+                            <span class="chk-box ${isCheckedClass}"></span>
+                            <span class="card-title ${isBoughtClass}">${item.name}</span>
+                        </div>
+                        <div class="card-qty ${item.bought ? 'is-bought' : ''}">數量: ${item.qty}</div>
                     </div>
-                    ${item.note ? `<div class="card-note">${item.note}</div>` : ''}
+                    ${item.note ? `<div class="card-note ${isBoughtClass}">${item.note}</div>` : ''}
                     <div class="card-actions">
-                        <button class="btn-mob-edit" onclick="editItem('${item.fbKey || item.localId}')">✏️ 修改</button>
-                        <button class="btn-mob-delete" onclick="deleteItem('${item.fbKey || item.localId}')">🗑️ 刪除</button>
+                        <button class="btn-mob-edit" onclick="editItem('${uniqueKey}')">✏️ 修改</button>
+                        <button class="btn-mob-delete" onclick="deleteItem('${uniqueKey}')">🗑️ 刪除</button>
                     </div>
                 `;
                 mobileList.appendChild(card);
             });
         }
 
-        // 新增或儲存修改 (核心：本地瞬間回應，背景靜默同步)
+        // 打勾已購買功能：自動同步與存檔
+        function toggleBought(key) {
+            const index = items.findIndex(i => (i.fbKey === key || i.localId === key));
+            if (index > -1) {
+                items[index].bought = !items[index].bought;
+                
+                // 1. 本地自動存檔
+                localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
+                renderList();
+                triggerAutoSaveNotice();
+
+                // 2. 雲端自動存檔
+                if (dbRef && !key.startsWith('local_')) {
+                    dbRef.child(key).update({ bought: items[index].bought });
+                }
+            }
+        }
+
+        // 觸發自動存檔成功提示
+        function triggerAutoSaveNotice() {
+            showStatus(`💾 系統已自動存檔至雲端房間：【${currentRoomName}】`, "#27ae60");
+            setTimeout(() => {
+                showStatus(`🟢 已與雲端連線：【${currentRoomName}】 (自動儲存中)`, "#67c23a");
+            }, 2500);
+        }
+
+        // 新增或「儲存修改」按鈕功能
         function saveItem() {
             const keyInput = document.getElementById('item-firebase-key').value;
             const name = document.getElementById('item-name').value.trim();
@@ -323,24 +427,27 @@
                 timestamp: timestamp
             };
 
-            // 🚀 【第一步：本地瞬間反應，不用等網路】
+            // 🚀 本地瞬間儲存、更新畫面
             if (keyInput) {
-                // 修改
+                // 【修改模式】
                 const index = items.findIndex(i => (i.fbKey === keyInput || i.localId === keyInput));
                 if (index > -1) {
+                    // 保留原本的 bought 狀態，不要被覆蓋
+                    localItemData.bought = items[index].bought || false;
                     items[index] = { ...items[index], ...localItemData };
                 }
             } else {
-                // 新增
-                items.push({ localId: tempLocalId, ...localItemData });
+                // 【新增模式】：預設為未購買 (bought: false)
+                items.push({ localId: tempLocalId, bought: false, ...localItemData });
             }
 
-            // 立刻儲存本地備份並更新畫面（保證畫面0.01秒內出現最新物品！）
+            // 本地自動存檔
             localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
             renderList();
             clearInputs();
+            triggerAutoSaveNotice();
 
-            // 🚀 【第二步：在背景悄悄更新雲端】
+            // 🚀 雲端背景自動同步
             if (dbRef) {
                 const cloudPayload = {
                     name: localItemData.name,
@@ -350,16 +457,15 @@
                 };
 
                 if (keyInput && !keyInput.startsWith('local_')) {
-                    // 如果原本就有雲端金鑰，直接更新雲端該節點
-                    dbRef.child(keyInput).update(cloudPayload).catch(err => console.log('背景同步延遲，已留存於本地'));
+                    dbRef.child(keyInput).update(cloudPayload);
                 } else {
-                    // 如果是全新新增，推送到雲端
-                    dbRef.push(cloudPayload).catch(err => console.log('背景上傳延遲，已留存於本地'));
+                    cloudPayload.bought = false;
+                    dbRef.push(cloudPayload);
                 }
             }
         }
 
-        // 點選修改（瞬間捲動到下方表單填好內容）
+        // 點選修改按鈕：立刻將上方資料帶入底部輸入區，並滾動引導
         function editItem(key) {
             const item = items.find(i => (i.fbKey === key || i.localId === key));
             if (item) {
@@ -372,24 +478,63 @@
                 document.getElementById('save-btn').innerText = '儲存修改';
                 document.getElementById('cancel-btn').style.display = 'inline-block';
                 
-                // 平滑滾動到最下方的輸入編輯區
+                // 平滑滾動到最底部的輸入區
                 document.getElementById('editor-section').scrollIntoView({ behavior: 'smooth', block: 'end' });
             }
         }
 
-        // 刪除物品
+        // 刪除按鈕功能：自動同步與存檔
         function deleteItem(key) {
             if (confirm('確定要刪除這個物品嗎？群組中其他人的手機也會同步消失喔！')) {
-                // 1. 本地瞬間刪除
+                // 1. 本地瞬間刪除與存檔
                 items = items.filter(i => (i.fbKey !== key && i.localId !== key));
                 localStorage.setItem('cache_' + currentRoomName, JSON.stringify(items));
                 renderList();
+                triggerAutoSaveNotice();
 
-                // 2. 背景默默移去雲端節點
+                // 2. 雲端同步刪除
                 if (dbRef && !key.startsWith('local_')) {
-                    dbRef.child(key).remove().catch(err => console.log('背景同步延遲，本地已先刪除'));
+                    dbRef.child(key).remove();
                 }
             }
+        }
+
+        // 一鍵複製 LINE 排版
+        function copyToClipboard() {
+            if (items.length === 0) {
+                alert("目前清單是空的，沒辦法複製喔！");
+                return;
+            }
+
+            let text = `🇯🇵 【日本旅行購物清單 - ${currentRoomName}】\n`;
+            text += `=========================\n\n`;
+
+            const unbought = items.filter(i => !i.bought);
+            const bought = items.filter(i => i.bought);
+
+            if (unbought.length > 0) {
+                text += `📝 【待購買清單】:\n`;
+                unbought.forEach((item, index) => {
+                    text += `${index + 1}. ${item.name} (數量: ${item.qty})${item.note ? ` - 備註: ${item.note}` : ''}\n`;
+                });
+                text += `\n`;
+            }
+
+            if (bought.length > 0) {
+                text += `🟢 【已買到清單】:\n`;
+                bought.forEach((item, index) => {
+                    text += `✓ ${item.name} (數量: ${item.qty})\n`;
+                });
+            }
+
+            text += `\n=========================\n`;
+            text += `同步網頁即時看：${window.location.href}`;
+
+            navigator.clipboard.writeText(text).then(() => {
+                alert("📋 清單已成功複製！您可以直接貼到 LINE 群組囉！");
+            }).catch(err => {
+                alert("複製失敗，請手動複製網頁內容。");
+            });
         }
 
         function clearInputs() {
@@ -404,7 +549,6 @@
         
         function cancelEdit() { clearInputs(); }
 
-        // 啟動應用程式
         initConnection();
     </script>
 </body>
