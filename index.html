@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>日本旅行購物清單 (群組共享版)</title>
+    <!-- 引入 html2pdf.js 用於匯出 PDF -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #d71921; /* 日本紅 */
+            --hover-color: #b0151b;
+            --bg-color: #f7f9fc;
+        }
+        body { 
+            font-family: 'Segoe UI', 'Microsoft JhengHei', sans-serif; 
+            padding: 20px; 
+            max-width: 800px; 
+            margin: auto; 
+            background-color: var(--bg-color); 
+        }
+        h1 { color: var(--primary-color); text-align: center; border-bottom: 2px solid var(--primary-color); padding-bottom: 10px; margin-bottom: 30px; }
+        
+        /* 輸入區塊樣式 */
+        .input-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+        }
+        .input-group { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+        input { padding: 12px; border: 1px solid #ccc; border-radius: 4px; flex: 1; min-width: 150px; font-size: 16px; }
+        .qty-input { flex: 0.3; min-width: 80px; }
+        
+        /* 按鈕樣式 */
+        button { padding: 10px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 15px; font-weight: bold; transition: 0.2s; }
+        .btn-primary { background-color: var(--primary-color); color: white; width: 100px; }
+        .btn-primary:hover { background-color: var(--hover-color); }
+        .btn-cancel { background-color: #95a5a6; color: white; display: none; }
+        .btn-edit { background-color: #f39c12; color: white; padding: 6px 12px; margin-right: 5px; }
+        .btn-delete { background-color: #e74c3c; color: white; padding: 6px 12px; }
+        .btn-export { background-color: #27ae60; color: white; width: 100%; margin-top: 25px; font-size: 18px; padding: 15px; border-radius: 6px; }
+        .btn-export:hover { background-color: #219653; }
+        
+        /* 表格樣式 */
+        .table-container { overflow-x: auto; background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; color: #333; font-weight: bold; }
+        tr:hover { background-color: #fcfcfc; }
+        .actions { white-space: nowrap; width: 140px; }
+        .sync-status { text-align: center; color: #7f8c8d; font-size: 14px; margin-bottom: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h1>🇯🇵 日本旅行購物清單 (群組共享版)</h1>
+    <div class="sync-status" id="status">🔄 正在連線到免費雲端資料庫...</div>
+    
+    <!-- 輸入區塊 -->
+    <div class="input-card">
+        <div class="input-group">
+            <input type="hidden" id="item-id">
+            <input type="text" id="item-name" placeholder="物品名稱 (例: 吹風機、合利他命)" required>
+            <input type="number" id="item-qty" class="qty-input" placeholder="數量" min="1" value="1">
+            <input type="text" id="item-note" placeholder="備註/誰要買的 (例: 媽媽、唐吉訶德)">
+        </div>
+        <div style="text-align: right;">
+            <button onclick="cancelEdit()" id="cancel-btn" class="btn-cancel">取消修改</button>
+            <button onclick="saveItem()" id="save-btn" class="btn-primary">新增</button>
+        </div>
+    </div>
+
+    <!-- 清單顯示區塊 -->
+    <div class="table-container">
+        <table id="shopping-table">
+            <thead>
+                <tr>
+                    <th>物品名稱</th>
+                    <th style="width: 80px;">數量</th>
+                    <th>備註/購買人</th>
+                    <th class="action-col" style="width: 150px;">操作</th>
+                </tr>
+            </thead>
+            <tbody id="list-body">
+                <tr><td colspan="4" style="text-align: center; color: #999; padding: 30px 10px;">資料載入中...</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <button class="btn-export" onclick="exportPDF()">📄 匯出成 PDF</button>
+
+    <script>
+        // 我們使用免費、免註冊的 kvdb.io 公開金鑰庫，為你們建立一個臨時的日本旅遊清單通道
+        // 這個隨機 ID 代表你們專屬的雲端房間，任何人連進來都會讀寫同一個地方
+        const roomId = "japan_trip_list_2026_shared";
+        const apiUrl = `https://kvdb.io/MN87M9GvM2rX489bAn9g86/${roomId}`;
+
+        let items = [];
+
+        // 從雲端下載資料
+        async function loadData() {
+            try {
+                const response = await fetch(apiUrl);
+                if (response.status === 404) {
+                    // 如果雲端還沒有資料，初始化為空陣列
+                    items = [];
+                } else if (response.ok) {
+                    items = await response.json();
+                }
+                document.getElementById('status').innerText = "🟢 已與雲端資料即時同步";
+                renderList();
+            } catch (error) {
+                document.getElementById('status').innerText = "🔴 連線失敗，請檢查網路";
+                console.error(error);
+            }
+        }
+
+        // 上傳最新資料到雲端
+        async function uploadData() {
+            document.getElementById('status').innerText = "⚡ 正在同步到雲端...";
+            try {
+                await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(items)
+                });
+                document.getElementById('status').innerText = "🟢 已與雲端資料即時同步";
+            } catch (error) {
+                document.getElementById('status').innerText = "🔴 雲端存檔失敗";
+                alert("儲存失敗，請檢查網路連線！");
+            }
+        }
+
+        // 渲染畫面
+        function renderList() {
+            const tbody = document.getElementById('list-body');
+            tbody.innerHTML = '';
+            
+            if (items.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: #999; padding: 30px 10px;">雲端目前沒有物品，趕快新增吧！</td></tr>';
+                return;
+            }
+
+            items.forEach(item => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td><strong>${item.name}</strong></td>
+                    <td>${item.qty}</td>
+                    <td>${item.note || '-'}</td>
+                    <td class="action-col actions">
+                        <button class="btn-edit" onclick="editItem(${item.id})">修改</button>
+                        <button class="btn-delete" onclick="deleteItem(${item.id})">刪除</button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        // 新增或儲存修改
+        async function saveItem() {
+            const idInput = document.getElementById('item-id').value;
+            const name = document.getElementById('item-name').value;
+            const qty = document.getElementById('item-qty').value;
+            const note = document.getElementById('item-note').value;
+
+            if (!name.trim()) {
+                alert('請輸入物品名稱！');
+                return;
+            }
+
+            if (idInput) {
+                // 修改
+                const index = items.findIndex(i => i.id == idInput);
+                if (index > -1) {
+                    items[index] = { id: Number(idInput), name, qty, note };
+                }
+            } else {
+                // 新增
+                const newItem = {
+                    id: Date.now(),
+                    name,
+                    qty: qty || 1,
+                    note
+                };
+                items.push(newItem);
+            }
+
+            clearInputs();
+            renderList();
+            await uploadData(); // 同步到雲端
+        }
+
+        // 進入修改狀態
+        function editItem(id) {
+            const item = items.find(i => i.id === id);
+            if (item) {
+                document.getElementById('item-id').value = item.id;
+                document.getElementById('item-name').value = item.name;
+                document.getElementById('item-qty').value = item.qty;
+                document.getElementById('item-note').value = item.note;
+                
+                document.getElementById('save-btn').innerText = '儲存修改';
+                document.getElementById('cancel-btn').style.display = 'inline-block';
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        // 刪除
+        async function deleteItem(id) {
+            if(confirm('確定要刪除這個物品嗎？其他人的畫面也會同步消失喔！')) {
+                items = items.filter(i => i.id !== id);
+                renderList();
+                await uploadData(); // 同步到雲端
+            }
+        }
+
+        function clearInputs() {
+            document.getElementById('item-id').value = '';
+            document.getElementById('item-name').value = '';
+            document.getElementById('item-qty').value = '1';
+            document.getElementById('item-note').value = '';
+            document.getElementById('save-btn').innerText = '新增';
+            document.getElementById('cancel-btn').style.display = 'none';
+        }
+        
+        function cancelEdit() { clearInputs(); }
+
+        // PDF 匯出功能
+        function exportPDF() {
+            if (items.length === 0) {
+                alert('清單是空的，無法匯出喔！');
+                return;
+            }
+            const printContainer = document.createElement('div');
+            printContainer.style.padding = '20px';
+            printContainer.style.fontFamily = "'Microsoft JhengHei', sans-serif";
+
+            const title = document.createElement('h2');
+            title.innerText = '🇯🇵 日本旅行購物清單 (雲端共享版)';
+            title.style.color = '#d71921'; title.style.textAlign = 'center'; title.style.borderBottom = '2px solid #d71921'; title.style.paddingBottom = '10px'; title.style.marginBottom = '20px';
+            printContainer.appendChild(title);
+
+            const originalTable = document.getElementById('shopping-table');
+            const clonedTable = originalTable.cloneNode(true);
+            
+            const actionElements = clonedTable.querySelectorAll('.action-col');
+            actionElements.forEach(el => el.remove());
+
+            clonedTable.style.width = '100%'; clonedTable.style.borderCollapse = 'collapse';
+            
+            const cells = clonedTable.querySelectorAll('th, td');
+            cells.forEach(cell => { cell.style.border = '1px solid #ddd'; cell.style.padding = '10px'; });
+            const headers = clonedTable.querySelectorAll('th');
+            headers.forEach(h => { h.style.backgroundColor = '#f2f2f2'; });
+
+            printContainer.appendChild(clonedTable);
+
+            const opt = {
+                margin: 15, filename: '日本雲端購物清單.pdf', image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 }, jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(printContainer).save();
+        }
+
+        // 初始化：載入雲端資料，並設定每 5 秒自動跟雲端同步一次，防止別人新增的你沒看到
+        loadData();
+        setInterval(loadData, 5000);
+    </script>
+</body>
+</html>
